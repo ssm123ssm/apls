@@ -1,0 +1,58 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+```
+
+
+```{r}
+full <- APLS_e
+```
+
+Total mothers
+```{r}
+print(length(full$`Serial Number`))
+```
+
+```{r}
+
+asp <- full %>% pivot_longer(cols = str_subset(names(full), "_Aspirin"), names_to = "pregnancy", values_to = "ASP")
+
+lm <- full %>% pivot_longer(cols = str_subset(names(full), "_LMWH"), names_to = "pregnancy", values_to = "LMWH") %>% select(LMWH)
+
+out <- full %>% pivot_longer(cols = str_subset(names(full), "_outcome"), names_to = "pregnancy_", values_to = "outcome") %>% select(outcome)
+
+
+com <- cbind(asp,lm, out) %>% select(- str_subset(names(asp), "_LMWH")) %>% select(- str_subset(names(asp), "_outcome")) %>% filter(!is.na(outcome)) %>% mutate(pregnancy = str_extract(pregnancy, "\\d{1,2}")) 
+
+com %>% summarise(total_pregnancies = n())
+
+com %>%mutate(LMWH = ifelse(is.na(LMWH),0,LMWH), ASP = ifelse(is.na(ASP),0,ASP)) %>% summarize(Aspirin = sum(ASP), LMWH = sum(LMWH))
+
+com %>%mutate(LMWH = ifelse(is.na(LMWH),0,LMWH), ASP = ifelse(is.na(ASP),0,ASP)) %>% summarize(Both = sum(LMWH == 1 & ASP == 1))
+
+com %>% mutate(LMWH = ifelse(is.na(LMWH),0,LMWH), ASP = ifelse(is.na(ASP),0,ASP)) %>%
+summarize(None = sum(LMWH == 0 & ASP == 0))
+```
+
+demography
+
+number of pregnancies 
+```{r}
+com %>% group_by(`Serial Number`) %>% summarise(n = n()) %>% pull(n) %>% quantile()
+com %>% group_by(`Serial Number`) %>% summarise(n = n()) %>% ggplot(aes(n)) + geom_boxplot()
+```
+
+Age
+```{r}
+com %>% group_by(`Serial Number`) %>% summarise(age = min(Age)) %>% summarise(mean = mean(age, na.rm = TRUE), sd = sd(age, na.rm = TRUE))
+
+com %>% group_by(`Serial Number`) %>% summarise(age = min(Age)) %>% ggplot(aes(age)) + geom_histogram(binwidth = 2)
+
+
+```
+
