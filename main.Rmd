@@ -5,7 +5,6 @@ output: html_notebook
 
 ```{r}
 library(tidyverse)
-library(ggplot2)
 ```
 
 
@@ -26,8 +25,12 @@ lm <- full %>% pivot_longer(cols = str_subset(names(full), "_LMWH"), names_to = 
 
 out <- full %>% pivot_longer(cols = str_subset(names(full), "_outcome"), names_to = "pregnancy_", values_to = "outcome") %>% select(outcome)
 
+pih <- full %>% pivot_longer(cols = str_subset(names(full), "_PIH"), names_to = "pregnancy", values_to = "PIH") %>% select(PIH)
 
-com <- cbind(asp,lm, out) %>% select(- str_subset(names(asp), "_LMWH")) %>% select(- str_subset(names(asp), "_outcome")) %>% filter(!is.na(outcome)) %>% mutate(pregnancy = str_extract(pregnancy, "\\d{1,2}")) 
+poa <- full %>% select(str_subset(names(full), "_POA")) %>% mutate_if(is.character, as.double) %>% pivot_longer(cols = str_subset(names(full), "_POA"), names_to = "pregnancy", values_to = "POA") %>% select(POA)
+
+
+com <- cbind(asp,lm, out, pih, poa) %>% select(- str_subset(names(asp), "_LMWH")) %>% select(- str_subset(names(asp), "_outcome")) %>% select(- str_subset(names(asp), "_PIH")) %>% select(- str_subset(names(asp), "_POA")) %>% filter(!is.na(outcome)) %>% mutate(pregnancy = str_extract(pregnancy, "\\d{1,2}")) 
 
 com %>% summarise(total_pregnancies = n())
 
@@ -54,5 +57,86 @@ com %>% group_by(`Serial Number`) %>% summarise(age = min(Age)) %>% summarise(me
 com %>% group_by(`Serial Number`) %>% summarise(age = min(Age)) %>% ggplot(aes(age)) + geom_histogram(binwidth = 2)
 
 
+```
+
+PIH
+```{r}
+com %>% summarise(PIH = sum(PIH, na.rm = TRUE), "percent - out of pregnancies" = sum(PIH, na.rm = TRUE) * 100 / n() )
+```
+
+Other Medical conditions
+```{r}
+com %>% filter(!is.na(`Medical Conditions`)) %>% group_by(`Serial Number`) %>% summarise(condition = min(`Medical Conditions`)) %>% group_by(condition) %>% summarise(n = n(), "percent - out of mothers" = n() * 100 / length(full$`Serial Number`))
+```
+
+Investigations
+Any of the 5 investigations
+```{r}
+com %>% group_by(`Serial Number`) %>% 
+  summarise(any = ifelse(!is.na(min(Lupus)) | !is.na(min(ANA)) | !is.na(min(Cardiolipin)) | !is.na(min(APLS)) | !is.na(min(`beta2 microglobulin`)), 1,0 )) %>% 
+  summarise("Any investigation" = sum(any), "precent - of mothers" = sum(any)*100/n())
+```
+
+Any of  Lupus, APLS, cardiolipin, beta2
+```{r}
+com %>% group_by(`Serial Number`) %>% 
+  summarise(any = ifelse(!is.na(min(Lupus)) | !is.na(min(Cardiolipin)) | !is.na(min(APLS)) | !is.na(min(`beta2 microglobulin`)), 1,0 )) %>% 
+  summarise("Any investigation out of Lupus, cardio, beta, APLS" = sum(any), "precent - of mothers" = sum(any)*100/n())
+```
+
+Proportion of a positive result
+
+```{r}
+com %>% group_by(`Serial Number`) %>% 
+  summarise(any = ifelse(!is.na(min(Lupus)) | !is.na(min(Cardiolipin)) | !is.na(min(APLS)) | !is.na(min(`beta2 microglobulin`)), 1,0 ), any_positive = ifelse(min(Lupus) == 1 | min(Cardiolipin) == 1  | min(APLS) == 1 | min(`beta2 microglobulin`) == 1, 1, 0)) %>% 
+  mutate(any_positive = ifelse(is.na(any_positive),0, any_positive)) %>% 
+  filter(any == 1) %>%
+  summarise("positive subjects" = sum(any_positive), "percent of tested" = sum(any_positive) * 100 / n())
+```
+
+
+Checking for clinical criteria
+
+At or beyond 10th wk
+```{r}
+com %>% 
+  mutate(live = ifelse(outcome %in% c("EL-LSCS", "EM-LSCS", "Live", "LIVE", "LSCS", "Neonatal Death"),1,0)) %>% 
+  filter(live == 0) %>%
+  filter(POA >= 10) %>% group_by(`Serial Number`) %>% 
+  summarise(n = n()) %>% summarise("MC at or over 10wk" = n())
+```
+
+3 or more MC before 10 wk
+```{r}
+com %>% 
+    mutate(live = ifelse(outcome %in% c("EL-LSCS", "EM-LSCS", "Live", "LIVE", "LSCS", "Neonatal Death"),1,0)) %>% 
+    filter(live == 0) %>%
+    filter(POA < 10) %>% group_by(`Serial Number`) %>% 
+    filter(n() >= 3) %>%
+    summarise(n = n()) %>% summarise("at least 3 MC before 10 wk" = n())
+```
+
+Premature births before 34 wk
+```{r}
+com %>% 
+    mutate(live = ifelse(outcome %in% c("EL-LSCS", "EM-LSCS", "Live", "LIVE", "LSCS", "Neonatal Death"),1,0)) %>% 
+    filter(live == 1) %>%
+    filter(POA < 34) %>% group_by(`Serial Number`) %>% 
+    summarise(n = n()) %>% summarise("Premature birth before 34 wk" = n())
+```
+
+
+Outcome
+```{r}
+com <- com %>% 
+    mutate(live = ifelse(outcome %in% c("EL-LSCS", "EM-LSCS", "Live", "LIVE", "LSCS", "Neonatal Death"),1,0))
+
+```
+Previous pregnancy outcome without specific
+treatment
+```{r}
+com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 0) %>% summarise('total pregnancies' = n())
+
+com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 0) %>% filter(live == 1) %>% summarise('successful pregnancies' = n())
 ```
 
