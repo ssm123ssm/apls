@@ -138,5 +138,11 @@ treatment
 com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 0) %>% summarise('total pregnancies' = n())
 
 com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 0) %>% filter(live == 1) %>% summarise('successful pregnancies' = n())
+
+com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 0) %>% filter(live == 0) %>% summarise('failed pregnancies' = n())
+
+com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 0) %>% summarise('success rate' = mean(live)*100)
+
+com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 0) %>% filter(live == 0 & POA < 10) %>% summarise('MC before 10 wk' = n())
 ```
 
