@@ -9,6 +9,7 @@ knitr::opts_chunk$set(echo=FALSE, warning=FALSE, message=FALSE)
 
 ```{r}
 library(tidyverse)
+library(broom)
 ```
 
 
@@ -136,12 +137,18 @@ com <- com %>%
     mutate(live = ifelse(outcome %in% c("EL-LSCS", "EM-LSCS", "Live", "LIVE", "LSCS", "Neonatal Death"),1,0))
 
 ```
+
+
 Previous pregnancy outcome without specific
 treatment
 ```{r}
 com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 0) %>% summarise('total pregnancies' = n())
 
 com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 0) %>% filter(live == 1) %>% summarise('successful pregnancies' = n())
+
+no_treatment_total <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 0) %>% summarise('total pregnancies' = n()) %>% pull(`total pregnancies`)
+
+no_treatment_success <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 0) %>% filter(live == 1) %>% summarise('successful pregnancies' = n()) %>% pull('successful pregnancies')
 
 com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 0) %>% filter(live == 0) %>% summarise('failed pregnancies' = n())
 
@@ -159,6 +166,10 @@ com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)
 
 com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 | LMWH == 1) %>% filter(live == 1) %>% summarise('successful pregnancies' = n())
 
+either_treatment_total <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 | LMWH == 1) %>% summarise('total pregnancies' = n()) %>% pull(`total pregnancies`)
+
+either_treatment_success <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 | LMWH == 1) %>% filter(live == 1) %>% summarise('successful pregnancies' = n()) %>% pull('successful pregnancies')
+
 com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 | LMWH == 1) %>% filter(live == 0) %>% summarise('failed pregnancies' = n())
 
 com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 | LMWH == 1) %>% summarise('success rate' = mean(live)*100)
@@ -174,6 +185,10 @@ Previous pregnancy outcome - Treated Aspirin and LMWH
 com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 1) %>% summarise('total pregnancies' = n())
 
 com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 1) %>% filter(live == 1) %>% summarise('successful pregnancies' = n())
+
+both_treatment_total <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 1) %>% summarise('total pregnancies' = n()) %>% pull(`total pregnancies`)
+
+both_treatment_success <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 1) %>% filter(live == 1) %>% summarise('successful pregnancies' = n()) %>% pull('successful pregnancies')
 
 com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 1) %>% filter(live == 0) %>% summarise('failed pregnancies' = n())
 
@@ -191,6 +206,10 @@ com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)
 
 com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 0) %>% filter(live == 1) %>% summarise('successful pregnancies' = n())
 
+asp_treatment_total <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 0) %>% summarise('total pregnancies' = n()) %>% pull(`total pregnancies`)
+
+asp_treatment_success <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 0) %>% filter(live == 1) %>% summarise('successful pregnancies' = n()) %>% pull('successful pregnancies')
+
 com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 0) %>% filter(live == 0) %>% summarise('failed pregnancies' = n())
 
 com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 0) %>% summarise('success rate' = mean(live)*100)
@@ -207,6 +226,11 @@ com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)
 
 com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 1) %>% filter(live == 1) %>% summarise('successful pregnancies' = n())
 
+
+LMWH_treatment_total <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 1) %>% summarise('total pregnancies' = n()) %>% pull(`total pregnancies`)
+
+LMWH_treatment_success <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 1) %>% filter(live == 1) %>% summarise('successful pregnancies' = n()) %>% pull('successful pregnancies')
+
 com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 1) %>% filter(live == 0) %>% summarise('failed pregnancies' = n())
 
 com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 1) %>% summarise('success rate' = mean(live)*100)
@@ -214,4 +238,44 @@ com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)
 com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 1) %>% filter(live == 0 & POA < 10) %>% summarise('MC before 10 wk' = n())
 
 com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 1) %>% filter(live == 0 & POA >= 10) %>% summarise('MC at or after 10 wk' = n())
+```
+
+
+comparison
+
+No treatment vs both
+```{r}
+f1 <- prop.test(c(both_treatment_success, no_treatment_success), c(both_treatment_total, no_treatment_total), p = NULL, alternative = "greater",correct = TRUE)
+print(tidy(f1))
+```
+
+No treatment vs asp
+```{r}
+f1 <- prop.test(c(asp_treatment_success, no_treatment_success), c(asp_treatment_total, no_treatment_total), p = NULL, alternative = "greater",correct = TRUE)
+print(tidy(f1))
+```
+
+
+No treatment vs LMWH
+```{r}
+f1 <- prop.test(c(LMWH_treatment_success, no_treatment_success), c(LMWH_treatment_total, no_treatment_total), p = NULL, alternative = "greater",correct = TRUE)
+print(tidy(f1))
+```
+
+ASP treatment vs LMWH
+```{r}
+f1 <- prop.test(c(LMWH_treatment_success, asp_treatment_success), c(LMWH_treatment_total, asp_treatment_total), p = NULL, alternative = "two.sided",correct = TRUE)
+print(tidy(f1))
+```
+
+ASP treatment vs both
+```{r}
+f1 <- prop.test(c(both_treatment_success, asp_treatment_success), c(both_treatment_total, asp_treatment_total), p = NULL, alternative = "greater",correct = TRUE)
+print(tidy(f1))
+```
+
+LMWH treatment vs both
+```{r}
+f1 <- prop.test(c(both_treatment_success, LMWH_treatment_success), c(both_treatment_total, LMWH_treatment_total), p = NULL, alternative = "greater",correct = TRUE)
+print(tidy(f1))
 ```
