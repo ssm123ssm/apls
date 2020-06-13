@@ -10,6 +10,8 @@ knitr::opts_chunk$set(echo=FALSE, warning=FALSE, message=FALSE)
 ```{r}
 library(tidyverse)
 library(broom)
+library(readxl)
+APLS_e <- read_excel("C:/Users/Supun/Desktop/APLS/analysis/APLS/APLS_e.xlsx")
 ```
 
 
@@ -279,3 +281,18 @@ LMWH treatment vs both
 f1 <- prop.test(c(both_treatment_success, LMWH_treatment_success), c(both_treatment_total, LMWH_treatment_total), p = NULL, alternative = "greater",correct = TRUE)
 print(tidy(f1))
 ```
+
+Live rates between test positives and negatives
+
+```{r}
+p <- com %>%
+  mutate(any = ifelse(!is.na(Lupus) | !is.na((Cardiolipin)) | !is.na((APLS)) | !is.na((`beta2 microglobulin`)), 1,0 ), any_positive = ifelse((Lupus) == 1 | (Cardiolipin) == 1  | (APLS) == 1 | (`beta2 microglobulin`) == 1, 1, 0)) %>%
+  mutate(any_positive = ifelse(is.na(any_positive),0, any_positive)) %>%
+  filter(any == 1) %>% filter(ASP == 1 | LMWH == 1) %>% group_by(any_positive) %>% summarise(n = n(), live_number = sum(live), live_rate = mean(live))
+print(p)
+print(tidy(prop.test(p$live_number, p$n)))
+```
+
+number of pregnancies that were treated, in mothers who were tested for antibodies was `r sum(p$n)`.
+There ware `r p$n[2]` mothers tested positive for at least one test and the success rate was `r p$live_rate[2]`.
+`r p$n[1]` mothers had negative results and Success rate among them was `r p$live_rate[1]`
