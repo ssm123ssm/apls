@@ -22,9 +22,11 @@ full <- APLS_e
 Total mothers
 ```{r}
 print(length(full$`Serial Number`))
+total_mothers <- length(full$`Serial Number`)
 ```
 
 ```{r}
+# pivoting
 
 asp <- full %>% pivot_longer(cols = str_subset(names(full), "_Aspirin"), names_to = "pregnancy", values_to = "ASP")
 
@@ -40,13 +42,14 @@ poa <- full %>% select(str_subset(names(full), "_POA")) %>% mutate_if(is.charact
 com <- cbind(asp,lm, out, pih, poa) %>% select(- str_subset(names(asp), "_LMWH")) %>% select(- str_subset(names(asp), "_outcome")) %>% select(- str_subset(names(asp), "_PIH")) %>% select(- str_subset(names(asp), "_POA")) %>% filter(!is.na(outcome)) %>% mutate(pregnancy = str_extract(pregnancy, "\\d{1,2}")) 
 
 com %>% summarise(total_pregnancies = n())
+total_pregnancies <- com %>% summarise(total_pregnancies = n()) %>% pull(total_pregnancies)
 
-com %>%mutate(LMWH = ifelse(is.na(LMWH),0,LMWH), ASP = ifelse(is.na(ASP),0,ASP)) %>% summarize(Aspirin = sum(ASP), LMWH = sum(LMWH))
+# treatment
 
-com %>%mutate(LMWH = ifelse(is.na(LMWH),0,LMWH), ASP = ifelse(is.na(ASP),0,ASP)) %>% summarize(Both = sum(LMWH == 1 & ASP == 1))
+treatment <- com %>% mutate(LMWH = ifelse(is.na(LMWH),0,LMWH), ASP = ifelse(is.na(ASP),0,ASP)) %>% summarize(Aspirin_only = sum(ASP == 1 & LMWH == 0, na.rm = TRUE), LMWH_only = sum(ASP == 0 & LMWH == 1), Either = sum(ASP == 1 | LMWH == 1),None = sum(LMWH == 0 & ASP == 0), Both = sum(LMWH == 1 & ASP == 1), Aspirin = sum(ASP), LMWH = sum(LMWH))
 
-com %>% mutate(LMWH = ifelse(is.na(LMWH),0,LMWH), ASP = ifelse(is.na(ASP),0,ASP)) %>%
-summarize(None = sum(LMWH == 0 & ASP == 0))
+print(treatment)
+
 ```
 
 demography
@@ -54,21 +57,25 @@ demography
 number of pregnancies 
 ```{r}
 com %>% group_by(`Serial Number`) %>% summarise(n = n()) %>% pull(n) %>% quantile()
-com %>% group_by(`Serial Number`) %>% summarise(n = n()) %>% ggplot(aes(n)) + geom_boxplot()
+
+pregnancy_boxplot <- com %>% group_by(`Serial Number`) %>% summarise(n = n(), name = 'Number of gestations') %>% ggplot(aes(name, n)) + geom_boxplot() + labs(x = "", y = "") + scale_y_continuous(breaks = seq(1,10,by=2))
+
+pregnancy_quantiles <- com %>% group_by(`Serial Number`) %>% summarise(n = n()) %>% pull(n) %>% quantile()
 ```
 
 Age
 ```{r}
-com %>% group_by(`Serial Number`) %>% summarise(age = min(Age)) %>% summarise(mean = mean(age, na.rm = TRUE), sd = sd(age, na.rm = TRUE))
+age <- com %>% group_by(`Serial Number`) %>% summarise(age = min(Age)) %>% summarise(mean = mean(age, na.rm = TRUE), sd = sd(age, na.rm = TRUE))
 
-com %>% group_by(`Serial Number`) %>% summarise(age = min(Age)) %>% ggplot(aes(age)) + geom_histogram(binwidth = 2)
+age_histogram <- com %>% group_by(`Serial Number`) %>% summarise(age = min(Age)) %>% ggplot() + geom_histogram(aes(x = age), binwidth = 2, fill = "white", col = "black")
 
 
 ```
 
 PIH
 ```{r}
-com %>% summarise(PIH = sum(PIH, na.rm = TRUE), "percent - out of pregnancies" = sum(PIH, na.rm = TRUE) * 100 / n() )
+pih <- com %>% summarise(PIH = sum(PIH, na.rm = TRUE), "percent - out of pregnancies" = sum(PIH, na.rm = TRUE) * 100 / n() )
+print(pih)
 ```
 
 Other Medical conditions
@@ -86,7 +93,7 @@ com %>% group_by(`Serial Number`) %>%
 
 Any of  Lupus, APLS, cardiolipin, beta2
 ```{r}
-com %>% group_by(`Serial Number`) %>% 
+investigations_all <- com %>% group_by(`Serial Number`) %>% 
   summarise(any = ifelse(!is.na(min(Lupus)) | !is.na(min(Cardiolipin)) | !is.na(min(APLS)) | !is.na(min(`beta2 microglobulin`)), 1,0 )) %>% 
   summarise("Any investigation out of Lupus, cardio, beta, APLS" = sum(any), "precent - of mothers" = sum(any)*100/n())
 ```
@@ -94,7 +101,7 @@ com %>% group_by(`Serial Number`) %>%
 Proportion of a positive result
 
 ```{r}
-com %>% group_by(`Serial Number`) %>% 
+investigations_positive <- com %>% group_by(`Serial Number`) %>% 
   summarise(any = ifelse(!is.na(min(Lupus)) | !is.na(min(Cardiolipin)) | !is.na(min(APLS)) | !is.na(min(`beta2 microglobulin`)), 1,0 ), any_positive = ifelse(min(Lupus) == 1 | min(Cardiolipin) == 1  | min(APLS) == 1 | min(`beta2 microglobulin`) == 1, 1, 0)) %>% 
   mutate(any_positive = ifelse(is.na(any_positive),0, any_positive)) %>% 
   filter(any == 1) %>%
@@ -245,6 +252,12 @@ com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)
 
 comparison
 
+No treatment vs any
+```{r}
+f1 <- prop.test(c(either_treatment_success, no_treatment_success), c(either_treatment_total, no_treatment_total), p = NULL, alternative = "greater",correct = TRUE)
+print(tidy(f1))
+```
+
 No treatment vs both
 ```{r}
 f1 <- prop.test(c(both_treatment_success, no_treatment_success), c(both_treatment_total, no_treatment_total), p = NULL, alternative = "greater",correct = TRUE)
@@ -282,6 +295,62 @@ f1 <- prop.test(c(both_treatment_success, LMWH_treatment_success), c(both_treatm
 print(tidy(f1))
 ```
 
+
+
+\ \
+
+#### results
+A total of `r total_pregnancies` pregnancies were evaluated of `r total_mothers` mothers. The median number of pregnancies was `r pregnancy_quantiles["50%"]` with an inter-quantile range of 2.
+```{r fig.height=3, fig.width=3}
+pregnancy_boxplot
+```
+The mean age of the selected mothers was `r age$mean` with a standard deviation of `r age$sd`.
+```{r fig.height=3, fig.width=5}
+age_histogram + labs(x = "Age")
+```
+
+`r treatment$Both` pregnancies were treated with both LMWH and aspirin. `r treatment$Aspirin` and `r treatment$LMWH` pregnancies were treated with aspirin alone and LMWH alone, respectively.
+
+\ 
+`r pih$PIH` pregnancies were complicated with PIH.
+```{r}
+pih
+```
+\
+Outcome by treatment group
+```{r fig.height=5, fig.width=5}
+success <- c(asp_treatment_success, LMWH_treatment_success, either_treatment_success, no_treatment_success, both_treatment_success)
+
+treatment_table <- treatment %>%  pivot_longer(cols = names(treatment), names_to = 'Category', values_to = 'Total') %>% filter(! Category %in% c('Aspirin', 'LMWH')) %>% cbind(success) %>% mutate(rate = success * 100 / Total)
+
+treatment_table %>%
+  filter(Category != 'Either') %>% 
+  mutate(failed = Total - success) %>%
+  pivot_longer(cols = c('success','failed'), names_to = 'state', values_to = "number") %>%
+  ggplot(aes(x = reorder(Category, rate), y = number, fill = factor(state, levels=c('success', 'failed'))))  +
+  geom_bar(stat = 'identity') + 
+  labs(x = 'Category', fill = "")
+```
+
+The rate of live births among mothers who were not received specific treatment for APS was `r no_treatment_success / no_treatment_total`. In contrast, `r either_treatment_total` gestations were treated with either aspirin, LMWH or both and the rate of successful outcome was `r either_treatment_success / either_treatment_total`
+
+Outcome in each group is summarized below
+
+```{r}
+knitr::kable(treatment_table %>% mutate(Category = str_replace_all(.$Category, "_", " ")) %>% rename(n = Total, 'live births' = success, 'live birth rate' = rate) %>% arrange(`live birth rate`) %>% filter(Category != 'Either'))
+```
+
+\
+Investigations
+\
+`r pull(investigations_all["Any investigation out of Lupus, cardio, beta, APLS"]) ` (`r pull(investigations_all["precent - of mothers"])`%) mothers had undergone any of antibody tests for APL and out of them, `r pull(investigations_positive["positive subjects"])` (`r pull(investigations_positive["percent of tested"])`%) yeilded a positive result.
+
+```{r}
+knitr::kable(full %>% summarise(Lupus = sum(!is.na(Lupus)), cardiolipin = sum(!is.na(Cardiolipin)), 'beta 2 microglobulin' = sum(!is.na(`beta2 microglobulin`)), APL = sum(!is.na(APLS)) ))
+```
+
+\
+
 Live rates between test positives and negatives
 
 ```{r}
@@ -289,10 +358,11 @@ p <- com %>%
   mutate(any = ifelse(!is.na(Lupus) | !is.na((Cardiolipin)) | !is.na((APLS)) | !is.na((`beta2 microglobulin`)), 1,0 ), any_positive = ifelse((Lupus) == 1 | (Cardiolipin) == 1  | (APLS) == 1 | (`beta2 microglobulin`) == 1, 1, 0)) %>%
   mutate(any_positive = ifelse(is.na(any_positive),0, any_positive)) %>%
   filter(any == 1) %>% filter(ASP == 1 | LMWH == 1) %>% group_by(any_positive) %>% summarise(n = n(), live_number = sum(live), live_rate = mean(live))
-print(p)
-print(tidy(prop.test(p$live_number, p$n)))
+p1 <- (tidy(prop.test(p$live_number, p$n)))
 ```
 
-number of pregnancies that were treated, in mothers who were tested for antibodies was `r sum(p$n)`.
-There ware `r p$n[2]` mothers tested positive for at least one test and the success rate was `r p$live_rate[2]`.
-`r p$n[1]` mothers had negative results and Success rate among them was `r p$live_rate[1]`
+Number of pregnancies that were treated, in mothers who were tested for antibodies was `r sum(p$n)`.
+Out of them, `r p$n[2]` (`r p$n[2] * 100 / sum(p$n)`%) mothers tested positive for at least one test and the success rate was `r p$live_rate[2]`.
+`r p$n[1]` (`r p$n[1] * 100 / sum(p$n)`%) mothers had negative results and success rate among them was `r p$live_rate[1]`
+
+\ \ 
