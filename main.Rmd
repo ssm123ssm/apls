@@ -1,17 +1,24 @@
 ---
-title: "R Notebook"
-output: html_notebook
+title: "APLS study"
+output: 
+  html_notebook: 
+    toc: yes
+    code_folding: hide
+    fig_caption: yes
 ---
 
-```{r global_options}
+
+```{r global_options, message=FALSE, warning=FALSE}
+
 knitr::opts_chunk$set(echo=FALSE, warning=FALSE, message=FALSE)
+
 ```
 
 ```{r}
 library(tidyverse)
 library(broom)
 library(readxl)
-APLS_e <- read_excel("C:/Users/Supun/Desktop/APLS/analysis/APLS/APLS_e.xlsx")
+APLS_e <- read_excel("APLS_e.xlsx")
 ```
 
 
@@ -44,23 +51,58 @@ com <- cbind(asp,lm, out, pih, poa) %>% select(- str_subset(names(asp), "_LMWH")
 com %>% summarise(total_pregnancies = n())
 total_pregnancies <- com %>% summarise(total_pregnancies = n()) %>% pull(total_pregnancies)
 
+```
+
+Checking for clinical criteria
+```{r}
+com <- com %>% 
+    mutate(live = ifelse(outcome %in% c("EL-LSCS", "EM-LSCS", "Live", "LIVE", "LSCS", "Neonatal Death"),1,0))
+
+is_con <- function(v){
+  result <- rle(diff(as.numeric(v)))
+  any(result$lengths>=2 & result$values==1)
+}
+
+cr_1 <- com %>% filter(POA >= 10, live == 0) %>% group_by(`Serial Number`) %>% summarise(n = n(), criterion = 1)
+
+cr_2 <- com %>% filter(!`Serial Number` %in% cr_1$`Serial Number`) %>% filter(live == 1 & POA < 34) %>% group_by(`Serial Number`) %>% summarise(n = n(), criterion = 2)
+
+cr_3 <- com %>% filter(!`Serial Number` %in% cr_1$`Serial Number` & live == 0) %>% filter(!is.na(POA)) %>% group_by(`Serial Number`) %>% filter(is_con(pregnancy)) %>% summarise(n = n(), criterion = 3)
+
+no_cr <- com %>% filter(!`Serial Number` %in% cr_1$`Serial Number` & !`Serial Number` %in% cr_2$`Serial Number` & !`Serial Number` %in% cr_3$`Serial Number`) %>% group_by(`Serial Number`) %>% summarise(n = n(), criterion = "no")
+
+#selecting only eligible
+com <- com %>% filter(`Serial Number` %in% cr_1$`Serial Number` | `Serial Number` %in% cr_2$`Serial Number`  | `Serial Number` %in% cr_3$`Serial Number`)
+
+rbind(cr_1,cr_2,cr_3,no_cr) %>% group_by(criterion) %>% summarise(n = n())
+total_mothers <- com %>% group_by(`Serial Number`) %>% summarise(n = n()) %>% summarise(n = n()) %>% pull(n)
+total_pregnancies <- com %>% summarise(n = n()) %>% pull(n)
+```
+
+
+After correcting for criteria
+
+```{r}
+knitr::kable(data.frame("Total mothers" = total_mothers, "Total pregnancie" = total_pregnancies))
+```
+Treatment
+```{r}
 # treatment
 
 treatment <- com %>% mutate(LMWH = ifelse(is.na(LMWH),0,LMWH), ASP = ifelse(is.na(ASP),0,ASP)) %>% summarize(Aspirin_only = sum(ASP == 1 & LMWH == 0, na.rm = TRUE), LMWH_only = sum(ASP == 0 & LMWH == 1), Either = sum(ASP == 1 | LMWH == 1),None = sum(LMWH == 0 & ASP == 0), Both = sum(LMWH == 1 & ASP == 1), Aspirin = sum(ASP), LMWH = sum(LMWH))
 
 print(treatment)
-
 ```
 
 demography
 
 number of pregnancies 
-```{r}
+```{r message=FALSE, warning=FALSE}
 com %>% group_by(`Serial Number`) %>% summarise(n = n()) %>% pull(n) %>% quantile()
 
-pregnancy_boxplot <- com %>% group_by(`Serial Number`) %>% summarise(n = n(), name = 'Number of gestations') %>% ggplot(aes(name, n)) + geom_boxplot() + labs(x = "", y = "") + scale_y_continuous(breaks = seq(1,10,by=2))
-
 pregnancy_quantiles <- com %>% group_by(`Serial Number`) %>% summarise(n = n()) %>% pull(n) %>% quantile()
+
+pregnancy_boxplot <- com %>% ggplot(aes(as.numeric(pregnancy))) + geom_boxplot()
 ```
 
 Age
@@ -106,47 +148,9 @@ investigations_positive <- com %>% group_by(`Serial Number`) %>%
   mutate(any_positive = ifelse(is.na(any_positive),0, any_positive)) %>% 
   filter(any == 1) %>%
   summarise("positive subjects" = sum(any_positive), "percent of tested" = sum(any_positive) * 100 / n())
+investigations_all
+investigations_positive
 ```
-
-
-Checking for clinical criteria
-
-At or beyond 10th wk
-```{r}
-com %>% 
-  mutate(live = ifelse(outcome %in% c("EL-LSCS", "EM-LSCS", "Live", "LIVE", "LSCS", "Neonatal Death"),1,0)) %>% 
-  filter(live == 0) %>%
-  filter(POA >= 10) %>% group_by(`Serial Number`) %>% 
-  summarise(n = n()) %>% summarise("MC at or over 10wk" = n())
-```
-
-3 or more MC before 10 wk
-```{r}
-com %>% 
-    mutate(live = ifelse(outcome %in% c("EL-LSCS", "EM-LSCS", "Live", "LIVE", "LSCS", "Neonatal Death"),1,0)) %>% 
-    filter(live == 0) %>%
-    filter(POA < 10) %>% group_by(`Serial Number`) %>% 
-    filter(n() >= 3) %>%
-    summarise(n = n()) %>% summarise("at least 3 MC before 10 wk" = n())
-```
-
-Premature births before 34 wk
-```{r}
-com %>% 
-    mutate(live = ifelse(outcome %in% c("EL-LSCS", "EM-LSCS", "Live", "LIVE", "LSCS", "Neonatal Death"),1,0)) %>% 
-    filter(live == 1) %>%
-    filter(POA < 34) %>% group_by(`Serial Number`) %>% 
-    summarise(n = n()) %>% summarise("Premature birth before 34 wk" = n())
-```
-
-
-Outcome
-```{r}
-com <- com %>% 
-    mutate(live = ifelse(outcome %in% c("EL-LSCS", "EM-LSCS", "Live", "LIVE", "LSCS", "Neonatal Death"),1,0))
-
-```
-
 
 Previous pregnancy outcome without specific
 treatment
@@ -309,6 +313,9 @@ The mean age of the selected mothers was `r age$mean` with a standard deviation 
 age_histogram + labs(x = "Age")
 ```
 
+
+
+
 `r treatment$Both` pregnancies were treated with both LMWH and aspirin. `r treatment$Aspirin` and `r treatment$LMWH` pregnancies were treated with aspirin alone and LMWH alone, respectively.
 
 \ 
@@ -366,3 +373,4 @@ Out of them, `r p$n[2]` (`r p$n[2] * 100 / sum(p$n)`%) mothers tested positive f
 `r p$n[1]` (`r p$n[1] * 100 / sum(p$n)`%) mothers had negative results and success rate among them was `r p$live_rate[1]`
 
 \ \ 
+
