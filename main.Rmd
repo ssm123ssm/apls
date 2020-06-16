@@ -7,14 +7,12 @@ output:
     fig_caption: yes
 ---
 
-
-```{r global_options, message=FALSE, warning=FALSE}
-
-knitr::opts_chunk$set(echo=FALSE, warning=FALSE, message=FALSE)
-
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=8, fig.path='Figs/',
+                      echo=FALSE, warning=FALSE, message=FALSE)
 ```
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 library(tidyverse)
 library(broom)
 library(readxl)
@@ -32,7 +30,7 @@ print(length(full$`Serial Number`))
 total_mothers <- length(full$`Serial Number`)
 ```
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 # pivoting
 
 asp <- full %>% pivot_longer(cols = str_subset(names(full), "_Aspirin"), names_to = "pregnancy", values_to = "ASP")
@@ -48,13 +46,15 @@ poa <- full %>% select(str_subset(names(full), "_POA")) %>% mutate_if(is.charact
 
 com <- cbind(asp,lm, out, pih, poa) %>% select(- str_subset(names(asp), "_LMWH")) %>% select(- str_subset(names(asp), "_outcome")) %>% select(- str_subset(names(asp), "_PIH")) %>% select(- str_subset(names(asp), "_POA")) %>% filter(!is.na(outcome)) %>% mutate(pregnancy = str_extract(pregnancy, "\\d{1,2}")) 
 
+
+
 com %>% summarise(total_pregnancies = n())
 total_pregnancies <- com %>% summarise(total_pregnancies = n()) %>% pull(total_pregnancies)
 
 ```
 
 Checking for clinical criteria
-```{r}
+```{r message=FALSE, warning=FALSE}
 com <- com %>% 
     mutate(live = ifelse(outcome %in% c("EL-LSCS", "EM-LSCS", "Live", "LIVE", "LSCS", "Neonatal Death"),1,0))
 
@@ -63,7 +63,7 @@ is_con <- function(v){
   any(result$lengths>=2 & result$values==1)
 }
 
-cr_1 <- com %>% filter(POA >= 10, live == 0) %>% group_by(`Serial Number`) %>% summarise(n = n(), criterion = 1)
+cr_1 <- com %>% filter((POA >= 10 & live == 0) | POA == "IUD") %>% group_by(`Serial Number`) %>% summarise(n = n(), criterion = 1)
 
 cr_2 <- com %>% filter(!`Serial Number` %in% cr_1$`Serial Number`) %>% filter(live == 1 & POA < 34) %>% group_by(`Serial Number`) %>% summarise(n = n(), criterion = 2)
 
@@ -107,8 +107,8 @@ pregnancy_quantiles <- com %>% group_by(`Serial Number`) %>% summarise(n = n()) 
 pregnancy_boxplot <- com %>% ggplot(aes(as.numeric(pregnancy))) + geom_boxplot()
 ```
 
-Age
-```{r}
+
+```{r message=FALSE, warning=FALSE}
 age <- com %>% group_by(`Serial Number`) %>% summarise(age = min(Age)) %>% summarise(mean = mean(age, na.rm = TRUE), sd = sd(age, na.rm = TRUE))
 
 age_histogram <- com %>% group_by(`Serial Number`) %>% summarise(age = min(Age)) %>% ggplot() + geom_histogram(aes(x = age), binwidth = 2, fill = "white", col = "black")
@@ -123,20 +123,20 @@ print(pih)
 ```
 
 Other Medical conditions
-```{r}
+```{r message=FALSE, warning=FALSE}
 com %>% filter(!is.na(`Medical Conditions`)) %>% group_by(`Serial Number`) %>% summarise(condition = min(`Medical Conditions`)) %>% group_by(condition) %>% summarise(n = n(), "percent - out of mothers" = n() * 100 / length(full$`Serial Number`))
 ```
 
 Investigations
 Any of the 5 investigations
-```{r}
+```{r message=FALSE, warning=FALSE}
 com %>% group_by(`Serial Number`) %>% 
   summarise(any = ifelse(!is.na(min(Lupus)) | !is.na(min(ANA)) | !is.na(min(Cardiolipin)) | !is.na(min(APLS)) | !is.na(min(`beta2 microglobulin`)), 1,0 )) %>% 
   summarise("Any investigation" = sum(any), "precent - of mothers" = sum(any)*100/n())
 ```
 
 Any of  Lupus, APLS, cardiolipin, beta2
-```{r}
+```{r message=FALSE, warning=FALSE}
 investigations_all <- com %>% group_by(`Serial Number`) %>% 
   summarise(any = ifelse(!is.na(min(Lupus)) | !is.na(min(Cardiolipin)) | !is.na(min(APLS)) | !is.na(min(`beta2 microglobulin`)), 1,0 )) %>% 
   summarise("Any investigation out of Lupus, cardio, beta, APLS" = sum(any), "precent - of mothers" = sum(any)*100/n())
@@ -144,7 +144,7 @@ investigations_all <- com %>% group_by(`Serial Number`) %>%
 
 Proportion of a positive result
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 investigations_positive <- com %>% group_by(`Serial Number`) %>% 
   summarise(any = ifelse(!is.na(min(Lupus)) | !is.na(min(Cardiolipin)) | !is.na(min(APLS)) | !is.na(min(`beta2 microglobulin`)), 1,0 ), any_positive = ifelse(min(Lupus) == 1 | min(Cardiolipin) == 1  | min(APLS) == 1 | min(`beta2 microglobulin`) == 1, 1, 0)) %>% 
   mutate(any_positive = ifelse(is.na(any_positive),0, any_positive)) %>% 
@@ -157,102 +157,126 @@ investigations_positive
 Previous pregnancy outcome without specific
 treatment
 ```{r}
-com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 0) %>% summarise('total pregnancies' = n())
 
-com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 0) %>% filter(live == 1) %>% summarise('successful pregnancies' = n())
 
-no_treatment_total <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 0) %>% summarise('total pregnancies' = n()) %>% pull(`total pregnancies`)
+t <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 0) %>% summarise('total pregnancies' = n()) %>% pull(`total pregnancies`)
+no_treatment_total <- t
 
-no_treatment_success <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 0) %>% filter(live == 1) %>% summarise('successful pregnancies' = n()) %>% pull('successful pregnancies')
+s <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 0) %>% filter(live == 1) %>% summarise('successful pregnancies' = n()) %>% pull('successful pregnancies')
+no_treatment_success <- s
 
-com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 0) %>% filter(live == 0) %>% summarise('failed pregnancies' = n())
+f <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 0) %>% filter(live == 0) %>% summarise('failed pregnancies' = n())
 
-com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 0) %>% summarise('success rate' = mean(live)*100)
+r <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 0) %>% summarise('success rate' = mean(live)*100)
 
-com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 0) %>% filter(live == 0 & POA < 10) %>% summarise('MC before 10 wk' = n())
+b <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 0) %>% filter(live == 0 & POA < 10) %>% summarise('MC before 10 wk' = n())
 
-com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 0) %>% filter(live == 0 & POA >= 10) %>% summarise('MC at or after 10 wk' = n())
+a <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 0) %>% filter(live == 0 & POA >= 10) %>% summarise('MC at or after 10 wk' = n())
+
+df <- data.frame(Total = t, Successful = s, Failed = f, 'Success rate' = r, 'MC before 10 wk' = b, 'MC at or after 10 wk' = a)
+
+knitr::kable(df)
 ```
 
 
 Previous pregnancy outcome - Treated by either Aspirin or LMWH
 ```{r}
-com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 | LMWH == 1) %>% summarise('total pregnancies' = n())
+t <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 | LMWH == 1) %>% summarise('total pregnancies' = n())
 
-com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 | LMWH == 1) %>% filter(live == 1) %>% summarise('successful pregnancies' = n())
+s <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 | LMWH == 1) %>% filter(live == 1) %>% summarise('successful pregnancies' = n())
 
 either_treatment_total <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 | LMWH == 1) %>% summarise('total pregnancies' = n()) %>% pull(`total pregnancies`)
 
 either_treatment_success <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 | LMWH == 1) %>% filter(live == 1) %>% summarise('successful pregnancies' = n()) %>% pull('successful pregnancies')
 
-com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 | LMWH == 1) %>% filter(live == 0) %>% summarise('failed pregnancies' = n())
+f <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 | LMWH == 1) %>% filter(live == 0) %>% summarise('failed pregnancies' = n())
 
-com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 | LMWH == 1) %>% summarise('success rate' = mean(live)*100)
+r <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 | LMWH == 1) %>% summarise('success rate' = mean(live)*100)
 
-com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 | LMWH == 1) %>% filter(live == 0 & POA < 10) %>% summarise('MC before 10 wk' = n())
+b <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 | LMWH == 1) %>% filter(live == 0 & POA < 10) %>% summarise('MC before 10 wk' = n())
 
-com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 | LMWH == 1) %>% filter(live == 0 & POA >= 10) %>% summarise('MC at or after 10 wk' = n())
+a <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 | LMWH == 1) %>% filter(live == 0 & POA >= 10) %>% summarise('MC at or after 10 wk' = n())
+
+
+df <- data.frame(Total = t, Successful = s, Failed = f, 'Success rate' = r, 'MC before 10 wk' = b, 'MC at or after 10 wk' = a)
+
+knitr::kable(df)
 ```
 
 
 Previous pregnancy outcome - Treated Aspirin and LMWH
 ```{r}
-com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 1) %>% summarise('total pregnancies' = n())
+t <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 1) %>% summarise('total pregnancies' = n())
 
-com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 1) %>% filter(live == 1) %>% summarise('successful pregnancies' = n())
+s <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 1) %>% filter(live == 1) %>% summarise('successful pregnancies' = n())
 
 both_treatment_total <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 1) %>% summarise('total pregnancies' = n()) %>% pull(`total pregnancies`)
 
 both_treatment_success <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 1) %>% filter(live == 1) %>% summarise('successful pregnancies' = n()) %>% pull('successful pregnancies')
 
-com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 1) %>% filter(live == 0) %>% summarise('failed pregnancies' = n())
+f <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 1) %>% filter(live == 0) %>% summarise('failed pregnancies' = n())
 
-com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 1) %>% summarise('success rate' = mean(live)*100)
+r <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 1) %>% summarise('success rate' = mean(live)*100)
 
-com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 1) %>% filter(live == 0 & POA < 10) %>% summarise('MC before 10 wk' = n())
+b <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 1) %>% filter(live == 0 & POA < 10) %>% summarise('MC before 10 wk' = n())
 
-com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 1) %>% filter(live == 0 & POA >= 10) %>% summarise('MC at or after 10 wk' = n())
+a <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 1) %>% filter(live == 0 & POA >= 10) %>% summarise('MC at or after 10 wk' = n())
+
+
+df <- data.frame(Total = t, Successful = s, Failed = f, 'Success rate' = r, 'MC before 10 wk' = b, 'MC at or after 10 wk' = a)
+
+knitr::kable(df)
 ```
 
 
 Previous pregnancy outcome - Treated Aspirin alone
 ```{r}
-com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 0) %>% summarise('total pregnancies' = n())
+t <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 0) %>% summarise('total pregnancies' = n())
 
-com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 0) %>% filter(live == 1) %>% summarise('successful pregnancies' = n())
+s <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 0) %>% filter(live == 1) %>% summarise('successful pregnancies' = n())
 
 asp_treatment_total <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 0) %>% summarise('total pregnancies' = n()) %>% pull(`total pregnancies`)
 
 asp_treatment_success <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 0) %>% filter(live == 1) %>% summarise('successful pregnancies' = n()) %>% pull('successful pregnancies')
 
-com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 0) %>% filter(live == 0) %>% summarise('failed pregnancies' = n())
+f <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 0) %>% filter(live == 0) %>% summarise('failed pregnancies' = n())
 
-com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 0) %>% summarise('success rate' = mean(live)*100)
+r <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 0) %>% summarise('success rate' = mean(live)*100)
 
-com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 0) %>% filter(live == 0 & POA < 10) %>% summarise('MC before 10 wk' = n())
+b <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 0) %>% filter(live == 0 & POA < 10) %>% summarise('MC before 10 wk' = n())
 
-com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 0) %>% filter(live == 0 & POA >= 10) %>% summarise('MC at or after 10 wk' = n())
+a <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 1 & LMWH == 0) %>% filter(live == 0 & POA >= 10) %>% summarise('MC at or after 10 wk' = n())
+
+
+df <- data.frame(Total = t, Successful = s, Failed = f, 'Success rate' = r, 'MC before 10 wk' = b, 'MC at or after 10 wk' = a)
+
+knitr::kable(df)
 ```
 
 
 Previous pregnancy outcome - Treated LMWH alone
 ```{r}
-com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 1) %>% summarise('total pregnancies' = n())
+t <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 1) %>% summarise('total pregnancies' = n())
 
-com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 1) %>% filter(live == 1) %>% summarise('successful pregnancies' = n())
+s <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 1) %>% filter(live == 1) %>% summarise('successful pregnancies' = n())
 
 
 LMWH_treatment_total <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 1) %>% summarise('total pregnancies' = n()) %>% pull(`total pregnancies`)
 
 LMWH_treatment_success <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 1) %>% filter(live == 1) %>% summarise('successful pregnancies' = n()) %>% pull('successful pregnancies')
 
-com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 1) %>% filter(live == 0) %>% summarise('failed pregnancies' = n())
+f <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 1) %>% filter(live == 0) %>% summarise('failed pregnancies' = n())
 
-com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 1) %>% summarise('success rate' = mean(live)*100)
+r <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 1) %>% summarise('success rate' = mean(live)*100)
 
-com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 1) %>% filter(live == 0 & POA < 10) %>% summarise('MC before 10 wk' = n())
+b <- com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 1) %>% filter(live == 0 & POA < 10) %>% summarise('MC before 10 wk' = n())
 
-com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 1) %>% filter(live == 0 & POA >= 10) %>% summarise('MC at or after 10 wk' = n())
+a <-com %>% mutate(ASP = ifelse(is.na(ASP),0,ASP), LMWH = ifelse(is.na(LMWH),0,LMWH)) %>% filter(ASP == 0 & LMWH == 1) %>% filter(live == 0 & POA >= 10) %>% summarise('MC at or after 10 wk' = n())
+
+
+df <- data.frame(Total = t, Successful = s, Failed = f, 'Success rate' = r, 'MC before 10 wk' = b, 'MC at or after 10 wk' = a)
+
+knitr::kable(df)
 ```
 
 
@@ -296,7 +320,7 @@ print(tidy(f1))
 ```
 
 LMWH treatment vs both
-```{r}
+```{r message=FALSE, warning=FALSE}
 f1 <- prop.test(c(both_treatment_success, LMWH_treatment_success), c(both_treatment_total, LMWH_treatment_total), p = NULL, alternative = "greater",correct = TRUE)
 print(tidy(f1))
 ```
@@ -318,7 +342,7 @@ age_histogram + labs(x = "Age")
 
 
 
-`r treatment$Both` pregnancies were treated with both LMWH and aspirin. `r treatment$Aspirin` and `r treatment$LMWH` pregnancies were treated with aspirin alone and LMWH alone, respectively.
+`r treatment$Both` pregnancies were treated with both LMWH and aspirin. `r treatment$Aspirin_only` and `r treatment$LMWH_only` pregnancies were treated with aspirin alone and LMWH alone, respectively.
 
 \ 
 `r pih$PIH` pregnancies were complicated with PIH.
@@ -362,7 +386,7 @@ knitr::kable(full %>% summarise(Lupus = sum(!is.na(Lupus)), cardiolipin = sum(!i
 
 Live rates between test positives and negatives
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 p <- com %>%
   mutate(any = ifelse(!is.na(Lupus) | !is.na((Cardiolipin)) | !is.na((APLS)) | !is.na((`beta2 microglobulin`)), 1,0 ), any_positive = ifelse((Lupus) == 1 | (Cardiolipin) == 1  | (APLS) == 1 | (`beta2 microglobulin`) == 1, 1, 0)) %>%
   mutate(any_positive = ifelse(is.na(any_positive),0, any_positive)) %>%
