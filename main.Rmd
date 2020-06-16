@@ -71,6 +71,8 @@ cr_3 <- com %>% filter(!`Serial Number` %in% cr_1$`Serial Number` & live == 0) %
 
 no_cr <- com %>% filter(!`Serial Number` %in% cr_1$`Serial Number` & !`Serial Number` %in% cr_2$`Serial Number` & !`Serial Number` %in% cr_3$`Serial Number`) %>% group_by(`Serial Number`) %>% summarise(n = n(), criterion = "no")
 
+com_all <- com
+
 #selecting only eligible
 com <- com %>% filter(`Serial Number` %in% cr_1$`Serial Number` | `Serial Number` %in% cr_2$`Serial Number`  | `Serial Number` %in% cr_3$`Serial Number`)
 
